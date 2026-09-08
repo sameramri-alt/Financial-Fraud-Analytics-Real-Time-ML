@@ -1,0 +1,13 @@
+FROM python:3.9-slim
+
+# On installe dbt-core et l'adaptateur spécifique pour ClickHouse
+RUN pip install --no-cache-dir dbt-core dbt-clickhouse
+
+# On définit le répertoire de travail dans le conteneur
+WORKDIR /usr/app/dbt
+
+# On indique à dbt où trouver le fichier profiles.yml (qui contient les credentials)
+ENV DBT_PROFILES_DIR=/usr/app/dbt
+
+# Commande par défaut (peut être surchargée par le docker-compose)
+CMD ["dbt", "debug"]

@@ -1,0 +1,50 @@
+# Environment & Secrets
+.env
+*.env.local
+DEMARCHE_PROJET.md
+
+# PaySim Dataset (too large for GitHub > 100MB)
+data/
+*.csv
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# dbt Artifacts & Logs
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
+# MLflow Tracking & Local Artifacts
+mlruns/
+.trash/
+
+# IDE & OS Metadata
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

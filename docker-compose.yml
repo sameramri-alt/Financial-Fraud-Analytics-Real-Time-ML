@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-server
+    environment:
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"   # Port HTTP
+      - "${CLICKHOUSE_TCP_PORT:-9000}:9000"   # Port TCP natif
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8123/ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ingestion:
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile.ingestion
+    container_name: data-ingestion
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
+      - CLICKHOUSE_HTTP_PORT=${CLICKHOUSE_HTTP_PORT:-8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+    volumes:
+      - ./data:/app/data
+
+  dbt:
+    build:
+      context: ./dbt
+      dockerfile: Dockerfile.dbt
+    container_name: dbt-transformer
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
+      - CLICKHOUSE_HTTP_PORT=${CLICKHOUSE_HTTP_PORT:-8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+      - CLICKHOUSE_DB_SCHEMA=${CLICKHOUSE_DB_SCHEMA:-fraud_detection}
+    volumes:
+      - ./dbt:/usr/app/dbt
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.11.1
+    container_name: mlflow-server
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow/mlflow.db --default-artifact-root /mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow
+
+  trainer:
+    build:
+      context: ./training
+      dockerfile: Dockerfile.train
+    container_name: ml-trainer
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    environment:
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}
+      - CLICKHOUSE_HTTP_PORT=${CLICKHOUSE_HTTP_PORT:-8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME:-Détection_Fraude_Financière}
+    volumes:
+      - ./training:/app
+      - mlflow_data:/mlflow   # Le trainer écrit ses artefacts directement dans le volume partagé
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.api
+    container_name: fraud-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      mlflow:
+        condition: service_started
+    environment:
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME:-Détection_Fraude_Financière}
+    volumes:
+      - ./api:/app
+      - mlflow_data:/mlflow   # Partage du volume MLflow pour accéder aux artefacts (modèle .pkl)
+
+volumes:
+  clickhouse_data:
+  mlflow_data:

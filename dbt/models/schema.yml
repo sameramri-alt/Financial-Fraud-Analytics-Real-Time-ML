@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: "Couche Bronze : Données brutes nettoyées et renommées."
+    columns:
+      - name: origin_account_id
+        description: "ID du compte qui initie la transaction."
+        tests:
+          - not_null
+      - name: is_fraud
+        description: "Indicateur binaire de fraude (1 = Fraude, 0 = Légal)."
+        tests:
+          - not_null
+
+  - name: int_fraud_features
+    description: "Couche Silver : Calcul des indicateurs comportementaux de fraude."
+    columns:
+      - name: is_origin_emptied
+        description: "Vaut 1 si le compte d'origine a été entièrement vidé par la transaction."
+
+  - name: fct_transactions_features
+    description: "Couche Gold : Table finale pour l'entraînement du modèle ML."
+    columns:
+      - name: transaction_type
+        description: "Type de mouvement (CASH_IN, CASH_OUT, DEBIT, PAYMENT, TRANSFER)."
+        tests:
+          - accepted_values:
+              values: ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']

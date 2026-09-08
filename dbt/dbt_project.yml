@@ -1,0 +1,30 @@
+name: 'fraud_dbt'
+version: '1.0.0'
+config-version: 2
+
+# Profile défini dans profiles.yml
+profile: 'fraud_dbt'
+
+# Configuration des chemins
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  fraud_dbt:
+    # On matérialise tout sous forme de TABLE dans ClickHouse par défaut 
+    # (plus rapide pour notre dataset volumineux)
+    +materialized: table
+    bronze:
+      +schema: bronze
+    silver:
+      +schema: silver
+    gold:
+      +schema: gold
